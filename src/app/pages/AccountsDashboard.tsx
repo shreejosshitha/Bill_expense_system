@@ -15,7 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 export default function AccountsDashboard() {
   const { bills } = useData();
 
-  const pendingBills = bills.filter(b => b.status === 'pending').length;
+  const pendingBills = bills.filter(b => b.status === 'pending_accounts').length;
   const highRiskBills = bills.filter(b => b.riskLevel === 'high').length;
   const totalMonthlyExpense = bills.reduce((sum, b) => sum + b.amount, 0);
   const duplicateAlerts = bills.filter(b => b.fraudAlerts.some(a => a.includes('Duplicate'))).length;
@@ -36,12 +36,14 @@ export default function AccountsDashboard() {
   ];
 
   const getStatusBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
+      pending_accounts: 'bg-blue-100 text-blue-700',
+      pending_manager: 'bg-purple-100 text-purple-700',
       approved: 'bg-green-100 text-green-700',
       rejected: 'bg-red-100 text-red-700',
     };
-    return colors[status as keyof typeof colors] || colors.pending;
+    return colors[status] || colors.pending;
   };
 
   return (
@@ -167,7 +169,7 @@ export default function AccountsDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bills.filter(b => b.status === 'pending').map((bill) => (
+              {bills.filter(b => b.status === 'pending_accounts').map((bill) => (
                 <TableRow key={bill.id}>
                   <TableCell className="font-medium">{bill.id}</TableCell>
                   <TableCell>{bill.employeeName}</TableCell>
@@ -182,7 +184,7 @@ export default function AccountsDashboard() {
                   <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
-              {bills.filter(b => b.status === 'pending').length === 0 && (
+              {bills.filter(b => b.status === 'pending_accounts').length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                     No pending bills

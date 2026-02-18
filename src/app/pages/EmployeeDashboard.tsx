@@ -20,25 +20,27 @@ export default function EmployeeDashboard() {
   const myBills = bills.filter(b => b.employeeName === user?.name);
   const totalSubmitted = myBills.length;
   const approvedBills = myBills.filter(b => b.status === 'approved').length;
-  const pendingBills = myBills.filter(b => b.status === 'pending').length;
+  const pendingBills = myBills.filter(b => b.status === 'pending_accounts' || b.status === 'pending_manager').length;
   const rejectedBills = myBills.filter(b => b.status === 'rejected').length;
 
   const getRiskBadge = (level: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       low: 'bg-green-100 text-green-700',
       medium: 'bg-yellow-100 text-yellow-700',
       high: 'bg-red-100 text-red-700',
     };
-    return colors[level as keyof typeof colors] || colors.low;
+    return colors[level] || colors.low;
   };
 
   const getStatusBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
+      pending_accounts: 'bg-blue-100 text-blue-700',
+      pending_manager: 'bg-purple-100 text-purple-700',
       approved: 'bg-green-100 text-green-700',
       rejected: 'bg-red-100 text-red-700',
     };
-    return colors[status as keyof typeof colors] || colors.pending;
+    return colors[status] || colors.pending;
   };
 
   return (

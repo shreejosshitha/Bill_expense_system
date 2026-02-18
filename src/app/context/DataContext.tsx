@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
+/* ================= TYPES ================= */
+
 export type BillStatus =
   | 'pending'
+  | 'pending_accounts'
   | 'pending_manager'
   | 'approved'
   | 'rejected';
 
 export type RiskLevel = 'low' | 'medium' | 'high';
+
 export type BillCategory =
   | 'Travel'
   | 'Repair'
@@ -14,6 +18,14 @@ export type BillCategory =
   | 'Courier'
   | 'Office Supplies'
   | 'Other';
+
+export interface ApprovalStep {
+  role: string;
+  name: string;
+  status: 'submitted' | 'approved' | 'rejected';
+  timestamp?: string;
+  comment?: string;
+}
 
 export interface Bill {
   id: string;
@@ -31,14 +43,6 @@ export interface Bill {
   fraudAlerts: string[];
   approvalHistory: ApprovalStep[];
   fileUrl?: string;
-}
-
-export interface ApprovalStep {
-  role: string;
-  name: string;
-  status: 'pending' | 'approved' | 'rejected';
-  timestamp?: string;
-  comment?: string;
 }
 
 export interface Vendor {
@@ -84,7 +88,7 @@ export const useData = () => {
   return context;
 };
 
-/* ---------------- MOCK DATA ---------------- */
+/* ================= MOCK DATA ================= */
 
 const mockBills: Bill[] = [
   {
@@ -97,7 +101,7 @@ const mockBills: Bill[] = [
     amount: 4500,
     category: 'Travel',
     description: 'Client meeting travel expense',
-    status: 'pending',
+    status: 'pending_accounts',
     riskScore: 25,
     riskLevel: 'low',
     fraudAlerts: [],
@@ -105,7 +109,7 @@ const mockBills: Bill[] = [
       {
         role: 'Employee',
         name: 'John Doe',
-        status: 'approved',
+        status: 'submitted',
         timestamp: '2026-02-10 10:30',
       },
     ],
@@ -115,7 +119,7 @@ const mockBills: Bill[] = [
 const mockVendors: Vendor[] = [];
 const mockNotifications: Notification[] = [];
 
-/* ---------------- PROVIDER ---------------- */
+/* ================= PROVIDER ================= */
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [bills, setBills] = useState<Bill[]>(mockBills);
@@ -123,7 +127,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] =
     useState<Notification[]>(mockNotifications);
 
-  /* ---------------- ADD BILL ---------------- */
+  /* ================= ADD BILL ================= */
 
   const addBill = (
     billData: Omit<Bill, 'id' | 'status' | 'approvalHistory'>
@@ -131,12 +135,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     const newBill: Bill = {
       ...billData,
       id: `BILL${String(bills.length + 1).padStart(3, '0')}`,
-      status: 'pending',
+      status: 'pending_accounts', // Goes to Accounts first for approval
       approvalHistory: [
         {
           role: 'Employee',
           name: billData.employeeName,
-          status: 'approved',
+          status: 'submitted',
           timestamp: new Date().toLocaleString(),
         },
       ],
@@ -145,97 +149,120 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setBills((prev) => [newBill, ...prev]);
   };
 
-  /* ---------------- WORKFLOW LOGIC ---------------- */
+  /* ================= WORKFLOW ================= */
 
   const updateBillStatus = (
-    billId: string,
-    status: BillStatus,
-    role: string,
-    name: string,
-    comment?: string
-  ) => {
-    setBills((prevBills) =>
-      prevBills.map((bill) => {
-        if (bill.id !== billId) return bill;
+  billId: string,
+  status: BillStatus,
+  role: string,
+  name: string,
+  comment?: string
+) => {
+  // 🚨 BLOCK EMPLOYEE FROM APPROVING
+  if (role === 'employee') {
+    console.log('Employee cannot approve bills');
+    return;
+  }
 
-        const newStep: ApprovalStep = {
-          role,
-          name,
-          status,
-          timestamp: new Date().toLocaleString(),
-          comment,
-        };
+  setBills((prevBills) =>
+    prevBills.map((bill) => {
+      if (bill.id !== billId) return bill;
 
-        const updatedHistory = [...bill.approvalHistory, newStep];
+      const newStep: ApprovalStep = {
+        role,
+        name,
+        status: status === 'rejected' ? 'rejected' : 'approved',
+        timestamp: new Date().toLocaleString(),
+        comment,
+      };
 
-        /* ---- SMALL (≤ 5000) ---- */
-        if (bill.amount <= 5000) {
+      const updatedHistory = [...bill.approvalHistory, newStep];
+
+      /* ----- ACCOUNTS STEP ----- */
+      if (role === 'accounts') {
+        // Only process if bill is pending accounts
+        if (bill.status !== 'pending_accounts') {
+          return bill;
+        }
+
+        if (status === 'rejected') {
           return {
             ...bill,
-            status,
+            status: 'rejected',
             approvalHistory: updatedHistory,
           };
         }
 
-        /* ---- MEDIUM (5001–20000) ---- */
-        if (bill.amount > 5000 && bill.amount <= 20000) {
-          if (role === 'accounts' && status === 'approved') {
-            return {
-              ...bill,
-              status: 'pending_manager',
-              approvalHistory: updatedHistory,
-            };
-          }
-
-          if (role === 'manager') {
-            return {
-              ...bill,
-              status,
-              approvalHistory: updatedHistory,
-            };
-          }
+        // Small amount (≤₹5000) → final approval
+        if (bill.amount <= 5000) {
+          return {
+            ...bill,
+            status: 'approved',
+            approvalHistory: updatedHistory,
+          };
         }
 
-        /* ---- LARGE (>20000) ---- */
-        if (bill.amount > 20000) {
-          if (role === 'accounts' && status === 'approved') {
-            return {
-              ...bill,
-              status: 'pending_manager',
-              approvalHistory: updatedHistory,
-            };
-          }
+        // Large amount (>₹5000) → escalate to manager
+        return {
+          ...bill,
+          status: 'pending_manager',
+          approvalHistory: updatedHistory,
+        };
+      }
 
-          if (role === 'manager') {
-            return {
-              ...bill,
-              status,
-              approvalHistory: updatedHistory,
-            };
-          }
+      /* ----- MANAGER STEP ----- */
+      if (role === 'manager') {
+        // Only process if bill is pending manager
+        if (bill.status !== 'pending_manager') {
+          return bill;
         }
+        
+        return {
+          ...bill,
+          status,
+          approvalHistory: updatedHistory,
+        };
+      }
 
-        return bill;
-      })
-    );
+      return bill;
+    })
+  );
 
-    /* ---- Notification ---- */
+
+    /* ================= NOTIFICATIONS ================= */
+
+    // Create notification based on the status and role
+    let notificationTitle = '';
+    let notificationMessage = '';
+    let notificationType: 'info' | 'warning' | 'success' | 'error' = 'info';
+    
+    if (status === 'approved') {
+      notificationTitle = 'Bill Approved';
+      notificationType = 'success';
+      // Check if it was approved by manager or accounts
+      if (role === 'manager') {
+        notificationMessage = `Your bill ${billId} has been approved by Manager ${name}`;
+      } else {
+        notificationMessage = `Your bill ${billId} has been approved by Accounts`;
+      }
+    } else if (status === 'rejected') {
+      notificationTitle = 'Bill Rejected';
+      notificationType = 'error';
+      notificationMessage = `Your bill ${billId} has been rejected by ${role === 'manager' ? 'Manager' : 'Accounts'}`;
+    } else if (status === 'pending_manager') {
+      notificationTitle = 'Bill Escalated to Manager';
+      notificationType = 'info';
+      notificationMessage = `Your bill ${billId} has been forwarded to Manager for final approval`;
+    } else {
+      notificationTitle = 'Bill Updated';
+      notificationMessage = `Bill ${billId} has been updated by ${name}`;
+    }
 
     const newNotification: Notification = {
       id: `N${String(notifications.length + 1).padStart(3, '0')}`,
-      title:
-        status === 'approved'
-          ? 'Bill Approved'
-          : status === 'rejected'
-          ? 'Bill Rejected'
-          : 'Bill Updated',
-      message: `Bill ${billId} has been ${status} by ${name}`,
-      type:
-        status === 'approved'
-          ? 'success'
-          : status === 'rejected'
-          ? 'error'
-          : 'info',
+      title: notificationTitle,
+      message: notificationMessage,
+      type: notificationType,
       timestamp: new Date().toLocaleString(),
       read: false,
     };

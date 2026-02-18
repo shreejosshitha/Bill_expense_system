@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -30,21 +30,23 @@ export default function MyBills() {
   );
 
   const getStatusBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
+      pending_accounts: 'bg-blue-100 text-blue-700',
+      pending_manager: 'bg-purple-100 text-purple-700',
       approved: 'bg-green-100 text-green-700',
       rejected: 'bg-red-100 text-red-700',
     };
-    return colors[status as keyof typeof colors] || colors.pending;
+    return colors[status] || colors.pending;
   };
 
   const getRiskBadge = (level: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       low: 'bg-green-100 text-green-700',
       medium: 'bg-yellow-100 text-yellow-700',
       high: 'bg-red-100 text-red-700',
     };
-    return colors[level as keyof typeof colors] || colors.low;
+    return colors[level] || colors.low;
   };
 
   return (
@@ -94,7 +96,9 @@ export default function MyBills() {
                   <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
                   <TableCell>
                     <Badge className={getStatusBadge(bill.status)}>
-                      {bill.status}
+                      {bill.status === 'pending_accounts' ? 'Pending Accounts' : 
+                       bill.status === 'pending_manager' ? 'Pending Manager' : 
+                       bill.status}
                     </Badge>
                   </TableCell>
                   <TableCell>
