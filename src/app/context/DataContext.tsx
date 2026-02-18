@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 /* ================= TYPES ================= */
 
@@ -119,13 +119,53 @@ const mockBills: Bill[] = [
 const mockVendors: Vendor[] = [];
 const mockNotifications: Notification[] = [];
 
+// LocalStorage keys
+const BILLS_STORAGE_KEY = 'bills_data';
+const NOTIFICATIONS_STORAGE_KEY = 'notifications_data';
+
+/* ================= LOAD FROM STORAGE ================= */
+
+const loadFromStorage = <T,>(key: string, fallback: T): T => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error(`Error loading ${key} from localStorage:`, error);
+  }
+  return fallback;
+};
+
+const saveToStorage = <T,>(key: string, data: T): void => {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Error saving ${key} to localStorage:`, error);
+  }
+};
+
 /* ================= PROVIDER ================= */
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  const [bills, setBills] = useState<Bill[]>(mockBills);
+  // Load bills from localStorage or use mock data
+  const [bills, setBills] = useState<Bill[]>(() => 
+    loadFromStorage(BILLS_STORAGE_KEY, mockBills)
+  );
   const [vendors] = useState<Vendor[]>(mockVendors);
-  const [notifications, setNotifications] =
-    useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>(() => 
+    loadFromStorage(NOTIFICATIONS_STORAGE_KEY, mockNotifications)
+  );
+
+  // Save bills to localStorage whenever bills state changes
+  useEffect(() => {
+    saveToStorage(BILLS_STORAGE_KEY, bills);
+  }, [bills]);
+
+  // Save notifications to localStorage whenever notifications state changes
+  useEffect(() => {
+    saveToStorage(NOTIFICATIONS_STORAGE_KEY, notifications);
+  }, [notifications]);
 
   /* ================= ADD BILL ================= */
 
