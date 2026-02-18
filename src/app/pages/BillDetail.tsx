@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -78,12 +78,14 @@ export default function BillDetail() {
   };
 
   const getStatusBadge = (status: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
+      pending_accounts: 'bg-blue-100 text-blue-700',
+      pending_manager: 'bg-purple-100 text-purple-700',
       approved: 'bg-green-100 text-green-700',
       rejected: 'bg-red-100 text-red-700',
     };
-    return colors[status as keyof typeof colors] || colors.pending;
+    return colors[status] || colors.pending;
   };
 
   return (
@@ -260,7 +262,7 @@ export default function BillDetail() {
                             ? 'bg-green-100'
                             : step.status === 'rejected'
                             ? 'bg-red-100'
-                            : 'bg-yellow-100'
+                            : 'bg-blue-100'
                         }`}
                       >
                         {step.status === 'approved' ? (
@@ -268,7 +270,7 @@ export default function BillDetail() {
                         ) : step.status === 'rejected' ? (
                           <XCircle className="w-4 h-4 text-red-600" />
                         ) : (
-                          <AlertCircle className="w-4 h-4 text-yellow-600" />
+                          <FileText className="w-4 h-4 text-blue-600" />
                         )}
                       </div>
                       {index < bill.approvalHistory.length - 1 && (
@@ -293,9 +295,9 @@ export default function BillDetail() {
 
           {/* Comments & Actions */}
           {(
-  (bill.status === 'pending' && user?.role === 'accounts') ||
-  (bill.status === 'pending_manager' && user?.role === 'manager')
-) && (user?.role === 'accounts' || user?.role === 'manager') && (
+            (bill.status === 'pending_accounts' && user?.role === 'accounts') ||
+            (bill.status === 'pending_manager' && user?.role === 'manager')
+          ) && (
             <Card>
               <CardHeader>
                 <CardTitle>Review Actions</CardTitle>

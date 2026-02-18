@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useData, BillCategory } from '../context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,7 +7,13 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { Upload, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
@@ -29,38 +35,53 @@ export default function SubmitBill() {
 
   const [file, setFile] = useState<File | null>(null);
   const [showRiskScore, setShowRiskScore] = useState(false);
-  const [riskScore, setRiskScore] = useState({ score: 0, level: 'low' as 'low' | 'medium' | 'high' });
+  const [riskScore, setRiskScore] = useState({
+    score: 0,
+    level: 'low' as 'low' | 'medium' | 'high',
+  });
 
+  // --------------------------
+  // Risk Score Calculation
+  // --------------------------
   const calculateRiskScore = () => {
     let score = 0;
     const alerts: string[] = [];
 
-    // Amount-based risk
     const amount = parseFloat(formData.amount);
+
     if (amount > 35000 && amount < 40000) {
       score += 30;
       alerts.push('Amount just below approval limit');
     }
-    if (amount > 40000) {
+
+    if (amount >= 40000) {
       score += 20;
+      alerts.push('High amount requires manager approval');
     }
 
-    // Random additional risk factors
     if (Math.random() > 0.7) {
       score += 25;
       alerts.push('High frequency vendor this month');
     }
 
-    const level = score < 30 ? 'low' : score < 60 ? 'medium' : 'high';
+    const level =
+      score < 30 ? 'low' : score < 60 ? 'medium' : 'high';
+
     return { score, level, alerts };
   };
 
+  // --------------------------
+  // Submit Bill
+  // --------------------------
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) return;
+
     const risk = calculateRiskScore();
 
     addBill({
-      employeeName: user?.name || '',
+      employeeName: user.name,
       vendorName: formData.vendorName,
       invoiceNumber: formData.invoiceNumber,
       gstNumber: formData.gstNumber,
@@ -71,15 +92,30 @@ export default function SubmitBill() {
       riskScore: risk.score,
       riskLevel: risk.level,
       fraudAlerts: risk.alerts,
+
+      // ✅ First level - pending accounts approval
+      status: 'pending_accounts',
+
+      // ✅ Initial approval history - employee submitted the bill
+      approvalHistory: [
+        {
+          role: 'Employee',
+          name: user.name,
+          status: 'submitted',
+          comment: '',
+          timestamp: new Date().toLocaleString(),
+        },
+      ],
     });
 
     setRiskScore({ score: risk.score, level: risk.level });
     setShowRiskScore(true);
+
     toast.success('Bill submitted successfully!');
 
     setTimeout(() => {
       navigate('/my-bills');
-    }, 2000);
+    }, 1500);
   };
 
   const handleSaveDraft = () => {
@@ -105,6 +141,7 @@ export default function SubmitBill() {
         <CardHeader>
           <CardTitle>Submit New Bill</CardTitle>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* File Upload */}
@@ -115,126 +152,116 @@ export default function SubmitBill() {
                   id="file"
                   type="file"
                   accept="image/*,.pdf"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  onChange={(e) =>
+                    setFile(e.target.files?.[0] || null)
+                  }
                   className="hidden"
                 />
                 <label htmlFor="file" className="cursor-pointer">
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
                   <p className="text-sm text-gray-600">
-                    {file ? file.name : 'Click to upload or drag and drop'}
+                    {file ? file.name : 'Click to upload'}
                   </p>
-                  <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF (max. 10MB)</p>
                 </label>
               </div>
             </div>
 
-            {/* Form Fields */}
+            {/* Fields */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="vendorName">Vendor Name</Label>
-                <Input
-                  id="vendorName"
-                  value={formData.vendorName}
-                  onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="invoiceNumber">Invoice Number</Label>
-                <Input
-                  id="invoiceNumber"
-                  value={formData.invoiceNumber}
-                  onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="gstNumber">GST Number</Label>
-                <Input
-                  id="gstNumber"
-                  value={formData.gstNumber}
-                  onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value })}
-                  placeholder="29ABCDE1234F1Z5"
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="date">Bill Date</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (₹)</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value as BillCategory })}
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Travel">Travel</SelectItem>
-                    <SelectItem value="Repair">Repair</SelectItem>
-                    <SelectItem value="Fuel">Fuel</SelectItem>
-                    <SelectItem value="Courier">Courier</SelectItem>
-                    <SelectItem value="Office Supplies">Office Supplies</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Enter bill description..."
-                rows={3}
+              <Input
+                placeholder="Vendor Name"
+                value={formData.vendorName}
+                onChange={(e) =>
+                  setFormData({ ...formData, vendorName: e.target.value })
+                }
                 required
               />
+
+              <Input
+                placeholder="Invoice Number"
+                value={formData.invoiceNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, invoiceNumber: e.target.value })
+                }
+                required
+              />
+
+              <Input
+                placeholder="GST Number"
+                value={formData.gstNumber}
+                onChange={(e) =>
+                  setFormData({ ...formData, gstNumber: e.target.value })
+                }
+                required
+              />
+
+              <Input
+                type="date"
+                value={formData.date}
+                onChange={(e) =>
+                  setFormData({ ...formData, date: e.target.value })
+                }
+                required
+              />
+
+              <Input
+                type="number"
+                placeholder="Amount"
+                value={formData.amount}
+                onChange={(e) =>
+                  setFormData({ ...formData, amount: e.target.value })
+                }
+                required
+              />
+
+              <Select
+                value={formData.category}
+                onValueChange={(value) =>
+                  setFormData({
+                    ...formData,
+                    category: value as BillCategory,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Travel">Travel</SelectItem>
+                  <SelectItem value="Repair">Repair</SelectItem>
+                  <SelectItem value="Fuel">Fuel</SelectItem>
+                  <SelectItem value="Courier">Courier</SelectItem>
+                  <SelectItem value="Office Supplies">Office Supplies</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Risk Score Display */}
+            <Textarea
+              placeholder="Description"
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              required
+            />
+
+            {/* Risk Display */}
             {showRiskScore && (
               <div className="p-4 bg-gray-50 rounded-lg border">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Risk Score:</span>
-                  <Badge className={getRiskBadgeColor(riskScore.level)}>
-                    {riskScore.level.toUpperCase()} - {riskScore.score}%
-                  </Badge>
-                </div>
+                <Badge className={getRiskBadgeColor(riskScore.level)}>
+                  {riskScore.level.toUpperCase()} - {riskScore.score}%
+                </Badge>
               </div>
             )}
 
             {/* Buttons */}
             <div className="flex gap-3">
-              <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
+              <Button type="submit" className="flex-1 bg-blue-600">
                 <Send className="w-4 h-4 mr-2" />
                 Submit
               </Button>
+
               <Button type="button" variant="outline" onClick={handleSaveDraft}>
                 <Save className="w-4 h-4 mr-2" />
                 Save Draft

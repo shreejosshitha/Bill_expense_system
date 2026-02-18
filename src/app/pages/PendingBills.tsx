@@ -16,15 +16,15 @@ import { Eye, AlertTriangle } from 'lucide-react';
 export default function PendingBills() {
   const { bills } = useData();
 
-  const pendingBills = bills.filter(b => b.status === 'pending');
+  const pendingBills = bills.filter(b => b.status === 'pending_accounts' || b.status === 'pending_manager');
 
   const getRiskBadge = (level: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       low: 'bg-green-100 text-green-700',
       medium: 'bg-yellow-100 text-yellow-700',
       high: 'bg-red-100 text-red-700',
     };
-    return colors[level as keyof typeof colors] || colors.low;
+    return colors[level] || colors.low;
   };
 
   return (

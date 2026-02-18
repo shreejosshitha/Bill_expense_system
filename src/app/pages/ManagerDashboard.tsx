@@ -15,7 +15,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export default function ManagerDashboard() {
   const { bills } = useData();
 
-  const pendingFinalApprovals = bills.filter(b => b.status === 'pending' && b.amount >= 5000).length;
+  const pendingFinalApprovals = bills.filter(b => b.status === 'pending_manager').length;
   const highAmountBills = bills.filter(b => b.amount >= 40000).length;
   const riskAlerts = bills.filter(b => b.riskLevel === 'high').length;
   const avgApprovalTime = 2.5; // Mock data in hours
@@ -160,7 +160,7 @@ export default function ManagerDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bills.filter(b => b.amount >= 5000 && b.status === 'pending').map((bill) => (
+              {bills.filter(b => b.status === 'pending_manager').map((bill) => (
                 <TableRow key={bill.id}>
                   <TableCell className="font-medium">{bill.id}</TableCell>
                   <TableCell>{bill.employeeName}</TableCell>
@@ -183,7 +183,7 @@ export default function ManagerDashboard() {
                   <TableCell>{new Date(bill.date).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
-              {bills.filter(b => b.amount >= 5000 && b.status === 'pending').length === 0 && (
+              {bills.filter(b => b.status === 'pending_manager').length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center text-gray-500 py-8">
                     No bills requiring approval
