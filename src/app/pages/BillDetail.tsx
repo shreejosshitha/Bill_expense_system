@@ -292,7 +292,10 @@ export default function BillDetail() {
           </Card>
 
           {/* Comments & Actions */}
-          {bill.status === 'pending' && (user?.role === 'accounts' || user?.role === 'manager') && (
+          {(
+  (bill.status === 'pending' && user?.role === 'accounts') ||
+  (bill.status === 'pending_manager' && user?.role === 'manager')
+) && (user?.role === 'accounts' || user?.role === 'manager') && (
             <Card>
               <CardHeader>
                 <CardTitle>Review Actions</CardTitle>

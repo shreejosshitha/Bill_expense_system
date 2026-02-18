@@ -25,7 +25,8 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{ id: number; name: string } | null>(null);
+
 
   const login = async (email: string, password: string, role: UserRole) => {
     try {

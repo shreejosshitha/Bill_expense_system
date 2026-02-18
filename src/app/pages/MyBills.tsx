@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useAuth } from '../context/AuthContext';
+import { useData } from '../context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -14,45 +15,36 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { Search, Eye } from 'lucide-react';
-import axios from 'axios';
 
 export default function MyBills() {
   const { user } = useAuth();
-  const [bills, setBills] = useState<any[]>([]);
+  const { bills } = useData();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Fetch bills from backend
-  useEffect(() => {
-    if (!user) return;
-
-    axios.get(`http://127.0.0.1:5000/api/v1/bills/user/${user.id}`)
-      .then(res => setBills(res.data))
-      .catch(err => console.error(err));
-  }, [user]);
-
-  const filteredBills = bills.filter(
+  const myBills = bills.filter(b => b.employeeName === user?.name);
+  const filteredBills = myBills.filter(
     b =>
-      b.id.toString().includes(searchTerm) ||
+      b.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       b.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       b.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusBadge = (status: string) => {
     const colors = {
-      Pending: 'bg-yellow-100 text-yellow-700',
-      Approved: 'bg-green-100 text-green-700',
-      Rejected: 'bg-red-100 text-red-700',
+      pending: 'bg-yellow-100 text-yellow-700',
+      approved: 'bg-green-100 text-green-700',
+      rejected: 'bg-red-100 text-red-700',
     };
-    return colors[status] || colors.Pending;
+    return colors[status as keyof typeof colors] || colors.pending;
   };
 
   const getRiskBadge = (level: string) => {
     const colors = {
-      Low: 'bg-green-100 text-green-700',
-      Medium: 'bg-yellow-100 text-yellow-700',
-      High: 'bg-red-100 text-red-700',
+      low: 'bg-green-100 text-green-700',
+      medium: 'bg-yellow-100 text-yellow-700',
+      high: 'bg-red-100 text-red-700',
     };
-    return colors[level] || colors.Low;
+    return colors[level as keyof typeof colors] || colors.low;
   };
 
   return (
@@ -106,8 +98,8 @@ export default function MyBills() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge className={getRiskBadge(bill.riskScore)}>
-                      {bill.riskScore}
+                    <Badge className={getRiskBadge(bill.riskLevel)}>
+                      {bill.riskScore}%
                     </Badge>
                   </TableCell>
                   <TableCell>

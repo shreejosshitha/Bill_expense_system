@@ -11,10 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../components/ui/badge';
 import { Upload, Save, Send } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
 
 export default function SubmitBill() {
   const { user } = useAuth();
+  const { addBill } = useData();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -31,10 +31,11 @@ export default function SubmitBill() {
   const [showRiskScore, setShowRiskScore] = useState(false);
   const [riskScore, setRiskScore] = useState({ score: 0, level: 'low' as 'low' | 'medium' | 'high' });
 
-  // Same risk calculation as before
   const calculateRiskScore = () => {
     let score = 0;
     const alerts: string[] = [];
+
+    // Amount-based risk
     const amount = parseFloat(formData.amount);
     if (amount > 35000 && amount < 40000) {
       score += 30;
@@ -43,45 +44,42 @@ export default function SubmitBill() {
     if (amount > 40000) {
       score += 20;
     }
+
+    // Random additional risk factors
     if (Math.random() > 0.7) {
       score += 25;
       alerts.push('High frequency vendor this month');
     }
+
     const level = score < 30 ? 'low' : score < 60 ? 'medium' : 'high';
     return { score, level, alerts };
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     const risk = calculateRiskScore();
+
+    addBill({
+      employeeName: user?.name || '',
+      vendorName: formData.vendorName,
+      invoiceNumber: formData.invoiceNumber,
+      gstNumber: formData.gstNumber,
+      date: formData.date,
+      amount: parseFloat(formData.amount),
+      category: formData.category,
+      description: formData.description,
+      riskScore: risk.score,
+      riskLevel: risk.level,
+      fraudAlerts: risk.alerts,
+    });
+
     setRiskScore({ score: risk.score, level: risk.level });
     setShowRiskScore(true);
+    toast.success('Bill submitted successfully!');
 
-    try {
-      const dataToSend = new FormData();
-      dataToSend.append('employeeName', user.name);
-      dataToSend.append('vendorName', formData.vendorName);
-      dataToSend.append('invoiceNumber', formData.invoiceNumber);
-      dataToSend.append('gstNumber', formData.gstNumber);
-      dataToSend.append('date', formData.date);
-      dataToSend.append('amount', formData.amount);
-      dataToSend.append('category', formData.category);
-      dataToSend.append('description', formData.description);
-      dataToSend.append('riskLevel', risk.level);
-      if (file) dataToSend.append('file', file);
-
-      await axios.post('http://127.0.0.1:5000/api/v1/bills/', dataToSend, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      toast.success('Bill submitted successfully!');
-      setTimeout(() => navigate('/my-bills'), 1500);
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.response?.data?.error || 'Failed to submit bill');
-    }
+    setTimeout(() => {
+      navigate('/my-bills');
+    }, 2000);
   };
 
   const handleSaveDraft = () => {
@@ -122,7 +120,9 @@ export default function SubmitBill() {
                 />
                 <label htmlFor="file" className="cursor-pointer">
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">{file ? file.name : 'Click to upload or drag and drop'}</p>
+                  <p className="text-sm text-gray-600">
+                    {file ? file.name : 'Click to upload or drag and drop'}
+                  </p>
                   <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF (max. 10MB)</p>
                 </label>
               </div>
@@ -217,7 +217,7 @@ export default function SubmitBill() {
               />
             </div>
 
-            {/* Risk Score */}
+            {/* Risk Score Display */}
             {showRiskScore && (
               <div className="p-4 bg-gray-50 rounded-lg border">
                 <div className="flex items-center justify-between">
@@ -229,12 +229,15 @@ export default function SubmitBill() {
               </div>
             )}
 
+            {/* Buttons */}
             <div className="flex gap-3">
               <Button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700">
-                <Send className="w-4 h-4 mr-2" /> Submit
+                <Send className="w-4 h-4 mr-2" />
+                Submit
               </Button>
               <Button type="button" variant="outline" onClick={handleSaveDraft}>
-                <Save className="w-4 h-4 mr-2" /> Save Draft
+                <Save className="w-4 h-4 mr-2" />
+                Save Draft
               </Button>
             </div>
           </form>
