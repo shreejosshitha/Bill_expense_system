@@ -15,8 +15,9 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
-import { Upload, Save, Send } from 'lucide-react';
+import { Upload, Save, Send, Scan } from 'lucide-react';
 import { toast } from 'sonner';
+import { extractTextFromImage, OCRProgress } from '../utils/ocr';
 
 export default function SubmitBill() {
   const { user } = useAuth();
@@ -34,11 +35,16 @@ export default function SubmitBill() {
   });
 
   const [file, setFile] = useState<File | null>(null);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [showRiskScore, setShowRiskScore] = useState(false);
   const [riskScore, setRiskScore] = useState({
     score: 0,
     level: 'low' as 'low' | 'medium' | 'high',
   });
+
+  // OCR State
+  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<OCRProgress | null>(null);
 
   // --------------------------
   // Risk Score Calculation
@@ -71,6 +77,43 @@ export default function SubmitBill() {
   };
 
   // --------------------------
+  // OCR Processing
+  // --------------------------
+  const handleOCR = async () => {
+    if (!fileUrl) {
+      toast.error('Please upload a bill image first');
+      return;
+    }
+
+    setIsProcessingOCR(true);
+    setOcrProgress({ status: 'Starting OCR...', progress: 0 });
+
+    try {
+      const result = await extractTextFromImage(fileUrl, (progress) => {
+        setOcrProgress(progress);
+      });
+
+      // Auto-populate form with extracted data
+      setFormData((prev) => ({
+        ...prev,
+        vendorName: result.parsedData.vendorName || prev.vendorName,
+        invoiceNumber: result.parsedData.invoiceNumber || prev.invoiceNumber,
+        gstNumber: result.parsedData.gstNumber || prev.gstNumber,
+        date: result.parsedData.date || prev.date,
+        amount: result.parsedData.amount || prev.amount,
+      }));
+
+      toast.success(`OCR Complete! Confidence: ${result.confidence.toFixed(1)}%`);
+    } catch (error) {
+      console.error('OCR Error:', error);
+      toast.error('Failed to extract text from image');
+    } finally {
+      setIsProcessingOCR(false);
+      setOcrProgress(null);
+    }
+  };
+
+  // --------------------------
   // Submit Bill
   // --------------------------
   const handleSubmit = (e: React.FormEvent) => {
@@ -92,6 +135,7 @@ export default function SubmitBill() {
       riskScore: risk.score,
       riskLevel: risk.level,
       fraudAlerts: risk.alerts,
+      fileUrl: fileUrl || undefined,
 
       // ✅ First level - pending accounts approval
       status: 'pending_accounts',
@@ -152,9 +196,21 @@ export default function SubmitBill() {
                   id="file"
                   type="file"
                   accept="image/*,.pdf"
-                  onChange={(e) =>
-                    setFile(e.target.files?.[0] || null)
-                  }
+                  onChange={(e) => {
+                    const selectedFile = e.target.files?.[0] || null;
+                    setFile(selectedFile);
+                    
+                    // Convert file to base64 data URL
+                    if (selectedFile) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setFileUrl(reader.result as string);
+                      };
+                      reader.readAsDataURL(selectedFile);
+                    } else {
+                      setFileUrl(null);
+                    }
+                  }}
                   className="hidden"
                 />
                 <label htmlFor="file" className="cursor-pointer">
@@ -164,6 +220,38 @@ export default function SubmitBill() {
                   </p>
                 </label>
               </div>
+
+              {/* OCR Button and Progress */}
+              {fileUrl && (
+                <div className="space-y-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={handleOCR}
+                    disabled={isProcessingOCR}
+                  >
+                    <Scan className="w-4 h-4 mr-2" />
+                    {isProcessingOCR ? 'Processing OCR...' : 'Extract Text from Image (OCR)'}
+                  </Button>
+                  
+                  {/* OCR Progress */}
+                  {isProcessingOCR && ocrProgress && (
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm text-gray-600">
+                        <span>{ocrProgress.status}</span>
+                        <span>{ocrProgress.progress.toFixed(0)}%</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${ocrProgress.progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Fields */}

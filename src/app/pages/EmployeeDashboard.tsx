@@ -11,6 +11,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { FileText, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 
 export default function EmployeeDashboard() {
   const { user } = useAuth();
@@ -22,6 +23,59 @@ export default function EmployeeDashboard() {
   const approvedBills = myBills.filter(b => b.status === 'approved').length;
   const pendingBills = myBills.filter(b => b.status === 'pending_accounts' || b.status === 'pending_manager').length;
   const rejectedBills = myBills.filter(b => b.status === 'rejected').length;
+
+  // Personal expense trend - last 6 months
+  const getPersonalExpenseData = () => {
+    const monthlyExpenses: Record<string, number> = {};
+    const now = new Date();
+    
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toLocaleDateString('en-US', { month: 'short' });
+      monthlyExpenses[monthKey] = 0;
+    }
+    
+    myBills.forEach(bill => {
+      const billDate = new Date(bill.date);
+      const monthKey = billDate.toLocaleDateString('en-US', { month: 'short' });
+      if (monthlyExpenses[monthKey] !== undefined) {
+        monthlyExpenses[monthKey] += bill.amount;
+      }
+    });
+    
+    return Object.entries(monthlyExpenses).map(([month, amount]) => ({ month, amount }));
+  };
+
+  const personalExpenseData = getPersonalExpenseData();
+
+  // Category-wise spending for employee
+  const getCategoryData = () => {
+    const categoryColors: Record<string, string> = {
+      'Travel': '#3b82f6',
+      'Repair': '#ef4444',
+      'Fuel': '#10b981',
+      'Courier': '#f59e0b',
+      'Office Supplies': '#8b5cf6',
+      'Other': '#6b7280'
+    };
+    
+    const categoryExpenses: Record<string, number> = {};
+    myBills.forEach(bill => {
+      if (categoryExpenses[bill.category]) {
+        categoryExpenses[bill.category] += bill.amount;
+      } else {
+        categoryExpenses[bill.category] = bill.amount;
+      }
+    });
+    
+    return Object.entries(categoryExpenses).map(([name, value]) => ({
+      name,
+      value,
+      color: categoryColors[name] || categoryColors['Other']
+    }));
+  };
+
+  const categoryData = getCategoryData();
 
   const getRiskBadge = (level: string) => {
     const colors: Record<string, string> = {
@@ -105,6 +159,55 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Charts */}
+      {myBills.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Expense Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={personalExpenseData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => `₹${Number(value).toLocaleString()}`} />
+                  <Line type="monotone" dataKey="amount" stroke="#3b82f6" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Spending by Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `₹${Number(value).toLocaleString()}`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Recent Activity */}
       <Card>

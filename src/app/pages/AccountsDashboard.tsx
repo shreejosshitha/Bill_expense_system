@@ -20,11 +20,34 @@ export default function AccountsDashboard() {
   const totalMonthlyExpense = bills.reduce((sum, b) => sum + b.amount, 0);
   const duplicateAlerts = bills.filter(b => b.fraudAlerts.some(a => a.includes('Duplicate'))).length;
 
-  // Monthly expense data
-  const monthlyData = [
-    { month: 'Jan', amount: 85000 },
-    { month: 'Feb', amount: totalMonthlyExpense },
-  ];
+  // Monthly expense data - derived from actual bills
+  const getMonthlyData = () => {
+    const monthlyExpenses: Record<string, number> = {};
+    const now = new Date();
+    
+    // Get last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthKey = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      monthlyExpenses[monthKey] = 0;
+    }
+    
+    // Sum bills by month
+    bills.forEach(bill => {
+      const billDate = new Date(bill.date);
+      const monthKey = billDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      if (monthlyExpenses[monthKey] !== undefined) {
+        monthlyExpenses[monthKey] += bill.amount;
+      }
+    });
+    
+    return Object.entries(monthlyExpenses).map(([month, amount]) => ({
+      month: month.split(' ')[0], // Just the month name
+      amount
+    }));
+  };
+
+  const monthlyData = getMonthlyData();
 
   // Category-wise expense data
   const categoryData = [

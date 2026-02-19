@@ -1,4 +1,5 @@
 import { useData } from '../context/DataContext';
+import { Bill, ApprovalStep } from '../context/DataContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import {
@@ -20,23 +21,59 @@ export default function ManagerDashboard() {
   const riskAlerts = bills.filter(b => b.riskLevel === 'high').length;
   const avgApprovalTime = 2.5; // Mock data in hours
 
-  // Approval delay tracking
-  const delayData = [
-    { day: 'Mon', hours: 2.1 },
-    { day: 'Tue', hours: 1.8 },
-    { day: 'Wed', hours: 2.5 },
-    { day: 'Thu', hours: 3.2 },
-    { day: 'Fri', hours: 2.0 },
-  ];
+  // Calculate approval delay data from actual approval history
+  const getApprovalDelayData = (): { day: string; hours: number }[] => {
+    const dayMap: Record<string, number[]> = {
+      'Mon': [], 'Tue': [], 'Wed': [], 'Thu': [], 'Fri': [], 'Sat': [], 'Sun': []
+    };
+    
+    bills.forEach((bill: Bill) => {
+      if (bill.approvalHistory.length > 1) {
+        const submitted = bill.approvalHistory.find((h: ApprovalStep) => h.status === 'submitted');
+        const approved = bill.approvalHistory.find((h: ApprovalStep) => h.status === 'approved');
+        
+        if (submitted && approved && submitted.timestamp && approved.timestamp) {
+          const submitDate = new Date(submitted.timestamp);
+          const approveDate = new Date(approved.timestamp);
+          const hours = (approveDate.getTime() - submitDate.getTime()) / (1000 * 60 * 60);
+          const day = submitDate.toLocaleDateString('en-US', { weekday: 'short' });
+          
+          if (dayMap[day]) {
+            dayMap[day].push(hours);
+          }
+        }
+      }
+    });
+    
+    // Calculate average hours per day
+    return Object.entries(dayMap).map(([day, hoursArr]) => ({
+      day,
+      hours: hoursArr.length > 0 ? +(hoursArr.reduce((a: number, b: number) => a + b, 0) / hoursArr.length).toFixed(1) : 0
+    }));
+  };
 
-  // Department-wise expense
-  const deptData = [
-    { dept: 'Sales', amount: 45000 },
-    { dept: 'Marketing', amount: 32000 },
-    { dept: 'IT', amount: 58000 },
-    { dept: 'HR', amount: 18000 },
-    { dept: 'Operations', amount: 35000 },
-  ];
+  const delayData = getApprovalDelayData();
+
+  // Calculate department/vendor-wise expense from actual bills
+  const getDeptData = (): { dept: string; amount: number }[] => {
+    const vendorExpenses: Record<string, number> = {};
+    
+    bills.forEach((bill: Bill) => {
+      if (vendorExpenses[bill.vendorName]) {
+        vendorExpenses[bill.vendorName] += bill.amount;
+      } else {
+        vendorExpenses[bill.vendorName] = bill.amount;
+      }
+    });
+    
+    // Sort by amount and take top 5
+    return Object.entries(vendorExpenses)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5)
+      .map(([vendor, amount]) => ({ dept: vendor, amount }));
+  };
+
+  const deptData = getDeptData();
 
   const getRiskBadge = (level: string) => {
     const colors = {

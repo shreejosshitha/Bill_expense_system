@@ -110,13 +110,56 @@ export default function BillDetail() {
               <CardTitle>Bill Preview</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
-                <div className="text-center text-gray-400">
-                  <FileText className="w-16 h-16 mx-auto mb-2" />
-                  <p>Bill image preview</p>
-                  <p className="text-sm">Document uploaded by {bill.employeeName}</p>
+              {bill.fileUrl ? (
+                <div className="space-y-3">
+                  {bill.fileUrl.startsWith('data:image') ? (
+                    <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={bill.fileUrl} 
+                        alt="Bill preview" 
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    </div>
+                  ) : bill.fileUrl.startsWith('data:application/pdf') ? (
+                    <div className="bg-gray-100 rounded-lg h-96 flex flex-col items-center justify-center">
+                      <FileText className="w-16 h-16 mx-auto mb-2 text-red-500" />
+                      <p className="text-gray-600 mb-2">PDF Document</p>
+                      <a 
+                        href={bill.fileUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        Open PDF
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
+                      <div className="text-center text-gray-400">
+                        <FileText className="w-16 h-16 mx-auto mb-2" />
+                        <p>Unknown file format</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex justify-center">
+                    <a 
+                      href={bill.fileUrl} 
+                      download={`${bill.id}-bill`}
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      Download Attachment
+                    </a>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-gray-100 rounded-lg h-96 flex items-center justify-center">
+                  <div className="text-center text-gray-400">
+                    <FileText className="w-16 h-16 mx-auto mb-2" />
+                    <p>Bill image preview</p>
+                    <p className="text-sm">Document uploaded by {bill.employeeName}</p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
